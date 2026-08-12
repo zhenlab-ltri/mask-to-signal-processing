@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 
 # ==========================================
-# TRANSFORMATION FUNCTIONS (From your utilities)
+# TRANSFORMATION FUNCTIONS 
 # ==========================================
 def add_padding(data: np.ndarray, pad_width: int, pad_height: int) -> np.ndarray:
     """Adds padding to a 2D image of shape (height, width, channels)"""
