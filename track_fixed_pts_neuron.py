@@ -1,6 +1,8 @@
 import os
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # <-- CRITICAL FIX: Forces matplotlib to work in the background without GUI memory limits
 import matplotlib.pyplot as plt
 from scipy.spatial import cKDTree
 from ast import literal_eval
@@ -30,7 +32,6 @@ def compute_initial_offset(centerline, neuron_pos):
     anchor_point = centerline[idx]
     _, normal = get_tangent_and_normal(centerline, idx)
     offset = np.dot(neuron_pos - anchor_point, normal) 
-    # distance from neuron to closest centerline point projected on normal of centerline point
     return offset
 
 def find_matching_anchor(centerline, neuron_pos, target_offset):
@@ -39,9 +40,7 @@ def find_matching_anchor(centerline, neuron_pos, target_offset):
     for idx in range(1, len(centerline) - 1):
         _, normal = get_tangent_and_normal(centerline, idx)
         center_point = centerline[idx]
-        # Projected neuron position from this centerline point and normal
         projected_neuron = center_point + target_offset * normal
-        # Compare to actual neuron position
         error = np.linalg.norm(projected_neuron - neuron_pos)
 
         if error < min_error:
@@ -123,6 +122,10 @@ def run_tracking_process(csv_path, centerline_dir, mask_dir, start_frame, end_fr
     
     # === Process each frame in the chosen range ===
     results = []
+    
+    # CRITICAL OPTIMIZATION: Create the figure ONCE outside the loop
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
     for t in range(start_frame, end_frame + 1):
         centerline_fp = os.path.join(centerline_dir, f"{t}_centerline.npy")
         if not os.path.exists(centerline_fp):
@@ -155,13 +158,13 @@ def run_tracking_process(csv_path, centerline_dir, mask_dir, start_frame, end_fr
         results.append(row)
 
         # === Plot and save ===
-        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.clear()  # Clear the axes instead of creating a new figure
 
         # Load and show the mask image as background
-        mask_fp = os.path.join(mask_dir, f"{t}_mask.png")  # adjust extension if needed
+        mask_fp = os.path.join(mask_dir, f"{t}_mask.png") 
         if os.path.exists(mask_fp):
             img = plt.imread(mask_fp)
-            ax.imshow(img, origin="upper")  # default origin assumes (0,0) is top-left
+            ax.imshow(img, origin="upper") 
         else:
             print(f"Warning: Mask for frame {t} not found at {mask_fp}")
 
@@ -176,7 +179,9 @@ def run_tracking_process(csv_path, centerline_dir, mask_dir, start_frame, end_fr
         ax.legend()
         
         plt.savefig(os.path.join(output_dir, f"frame_{t:03d}.png"))
-        plt.close(fig) # Explicitly close the figure to free up memory
+        
+    # Free memory of the single figure completely once the loop finishes
+    plt.close(fig)
 
     # === Save output CSV next to masks folder ===
     out_csv = os.path.join(mask_dir, f"matched_points_{start_frame}_{end_frame}.csv")
