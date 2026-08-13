@@ -107,12 +107,27 @@ def run_tracking_process(csv_path, centerline_dir, mask_dir, start_frame, end_fr
     print(f"Using fixed signed offset: {offset:.3f} from neuron to centerline (calculated at frame {first_valid_frame})")
     print(f"Processing frames from {start_frame} to {end_frame} inclusive.")
 
+    # Helper function to create an empty row (filled with NaNs) for missing frames
+    def create_empty_row(frame_idx):
+        row = {
+            "frame": frame_idx,
+            "neuron_x": np.nan,
+            "neuron_y": np.nan,
+            "anchor_x": np.nan,
+            "anchor_y": np.nan
+        }
+        for i in range(-num_before, num_after + 1):
+            row[f"pt_{i}_x"] = np.nan
+            row[f"pt_{i}_y"] = np.nan
+        return row
+    
     # === Process each frame in the chosen range ===
     results = []
     for t in range(start_frame, end_frame + 1):
         centerline_fp = os.path.join(centerline_dir, f"{t}_centerline.npy")
         if not os.path.exists(centerline_fp):
             print(f"Frame {t} missing centerline. Skipping.")
+            results.append(create_empty_row(t))
             continue
 
         centerline = np.load(centerline_fp)[:, ::-1]  # flip (y, x) → (x, y)
@@ -121,6 +136,7 @@ def run_tracking_process(csv_path, centerline_dir, mask_dir, start_frame, end_fr
         anchor_idx = find_matching_anchor(centerline, neuron, offset)
         if anchor_idx is None:
             print(f"Could not find matching anchor for frame {t}")
+            results.append(create_empty_row(t))
             continue
 
         anchor_point = centerline[anchor_idx]
